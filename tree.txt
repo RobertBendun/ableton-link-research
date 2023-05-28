@@ -1,0 +1,188 @@
+
+
+ableton/
+├── discovery
+│   ├── InterfaceScanner.hpp
+        class ableton::discovery::InterfaceScanner
+        Produces sorted list of interfaces and calls callback with them.
+│   ├── IpV4Interface.hpp
+        asio::ip::udp::endpoint ableton::discovery::multicastEndpoint();
+        Returns constant endpoint (address + port) for multicast communication.
+        Hardcoded value is 224.76.78.75:20808
+                            224.L.N.K:先 which means first/prior/former/early in Chinese
+                            don't know if chinese symbol is an easter egg though
+        class ableton::discovery:IpV4Interface
+        send and receive data via interface. Has associated endpoint.
+│   ├── MessageTypes.hpp
+        Two main types of messages in discovery protocol:
+        struct PeerState<typename NodeState> that associates NodeState with TimeToLive value
+        that indicates for how many seconds this state may be considered valid one
+        struct ByeBye<typename NodeId> that indicates sender is leaving the session
+│   ├── NetworkByteStreamSerializable.hpp
+        Serialization infrastructure. Messages are send using network byte order.
+        Classes must specialize struct Deserialize<typename T> template or provide
+        static method
+        std::pair<T, It> T::fromNetworkByteStream(It begin, It end);
+        Deserialization is provided for:
+        - sized integers
+        - std::chrono::microseconds
+        - std::array, std::vector, std::tuple<X,Y>, std::tuple<X,Y,Z>
+        Additional utitiles are provided for serializing other containers.
+│   ├── Payload.hpp
+        Generic template magic to implement generalized infrastructure for playload construction
+        struct Payload<typename ...Entries>
+│   ├── PeerGateway.hpp
+        Infrastructure of IpV4Gateway, holding state of the peers.
+        It operates on one interface?
+│   ├── PeerGateways.hpp
+        Compsition of gateways, one per interfaces
+│   ├── Service.hpp
+        Holds PeerGateways class and provides some defaults I guess?
+│   ├── test
+│   │   ├── Interface.hpp
+│   │   ├── PayloadEntries.hpp
+│   │   └── Socket.hpp
+│   ├── UdpMessenger.hpp
+        class UdpMessenger<Interface, NodeState>
+        Holds node state and broadcasts it, listens for responses and state of other peers
+│   └── v1
+│       └── Messages.hpp
+            Message at most 512 messages
+            struct MessageHeader<typename NodeId>
+                enum MessageType : uint8_t { Invalid, Alive, Response, ByeBye } MessageType
+                uint8_t ttl
+                (using SessionGroupId = uint16) groupId
+                NodeId ident
+
+            
+            Messages have protocol header: char[]{'_', 'a', 's', 'd', 'p', '_', 'v', 1}
+            It aliveMessage(auto from, uint8 ttl, auto payload, auto out_iterator);
+            It resposneMessage(auto from, uint8 ttl, auto payload, auto out_iterator);
+            It byeByeMessage(auto from, auto out_iterator);
+            It seems that v1 messages can be only received and not produced.
+            Functions above are not called anywhere and only received in UdpMessanger
+
+├── link
+│   ├── Beats.hpp
+        struct Beats stores beats as int64_t microBeats
+        May be initialized by number of beats (double) or directly by microBeats
+        Provides serialization and deserialization, math operations
+│   ├── ClientSessionTimelines.hpp
+│   ├── Controller.hpp
+│   ├── Gateway.hpp
+│   ├── GhostXForm.hpp
+│   ├── HostTimeFilter.hpp
+│   ├── LinearRegression.hpp
+        Do linear regression on range of std::pair
+│   ├── MeasurementEndpointV4.hpp
+│   ├── Measurement.hpp
+│   ├── MeasurementService.hpp
+│   ├── Median.hpp
+        Calculate median of range of doubles
+│   ├── NodeId.hpp
+        NodeId is created as 8 uint8_t random numbers, inherits from std::array<u8, 8>
+        Serializable
+│   ├── NodeState.hpp
+│   ├── Optional.hpp
+        literally std::optional but worse
+│   ├── PayloadEntries.hpp
+│   ├── Peers.hpp
+│   ├── PeerState.hpp
+│   ├── Phase.hpp
+        Beats phase(const Beats beats, const Beats quantum)
+            phase(3, 4) == 3
+            phase(7, 4) == 3
+        Beats nextPhaseMatch(const Beats x, const Beats target, const Beats quantum)
+            nextPhaseMatch(2, 3, 4) == 3
+            nextPhaseMatch(4, 3, 4) == 7
+            nextPhaseMatch(6, 3, 4) == 8
+            Finds next beat that is in the same relation to quantum after current beat
+            
+        Beats closestPhaseMatch(const Beats x, const Beats target, const Beats quantum)
+            closestPhaseMatch(0, 3, 4) == -1
+            closestPhaseMatch(3, 3, 4) == 3
+            closestPhaseMatch(6, 3, 4) == 7
+        
+        TODO this two:
+        Beats toPhaseEncodedBeats(const Timeline& tl, const std::chrono::microseconds time, const Beats quantum)
+        std::chrono::microseconds fromPhaseEncodedBeats(const Timeline& tl, const Beats beat, const Beats quantum)
+│   ├── PingResponder.hpp
+│   ├── SessionId.hpp
+│   ├── Sessions.hpp
+│   ├── SessionState.hpp
+│   ├── StartStopState.hpp
+│   ├── Tempo.hpp
+        Tempo is double value wrapped inside struct to be serialized.
+        Holds bpm value, allows to:
+        - initialize from std::chrono::microseconds
+        - convert time to a beat value and back
+│   ├── Timeline.hpp
+        Tuple (tempo, beats, time). It allows to create bijection between beats and wall time.
+        Serializable and deserializable
+        Uses 0x746d6c6e ('tmln') as magic.
+        Allows for conversion with methods fromBeats and toBeats
+│   ├── TripleBuffer.hpp
+│   └── v1
+│       └── Messages.hpp
+            Messages have protocol header: char[]{'_', 'l', 'i', 'n', 'k', '_', 'v', 1}
+            Two types of messages: ping, pong
+├── Link.hpp
+├── Link.ipp
+├── platforms
+│   ├── asio
+│   │   ├── AsioTimer.hpp
+│   │   ├── AsioWrapper.hpp
+│   │   ├── Context.hpp
+│   │   ├── LockFreeCallbackDispatcher.hpp
+│   │   ├── Socket.hpp
+│   │   └── Util.hpp
+│   ├── Config.hpp
+│   ├── darwin
+│   │   ├── Clock.hpp
+│   │   ├── Darwin.hpp
+│   │   └── ThreadFactory.hpp
+│   ├── esp32
+│   │   ├── Clock.hpp
+│   │   ├── Context.hpp
+│   │   ├── Esp32.hpp
+│   │   ├── LockFreeCallbackDispatcher.hpp
+│   │   ├── Random.hpp
+│   │   └── ScanIpIfAddrs.hpp
+│   ├── linux
+│   │   ├── Clock.hpp
+│   │   ├── Linux.hpp
+│   │   └── ThreadFactory.hpp
+│   ├── posix
+│   │   └── ScanIpIfAddrs.hpp
+│   ├── stl
+│   │   ├── Clock.hpp
+│   │   └── Random.hpp
+│   └── windows
+│       ├── Clock.hpp
+│       ├── ScanIpIfAddrs.hpp
+│       ├── ThreadFactory.hpp
+│       └── Windows.hpp
+├── test
+│   ├── CatchWrapper.hpp
+│   └── serial_io
+│       ├── Context.hpp
+│       ├── Fixture.hpp
+│       ├── SchedulerTree.hpp
+│       └── Timer.hpp
+└── util
+    ├── Injected.hpp
+        Tool for dependency injection.
+    ├── Log.hpp
+        All functions regarding logs are friend functions 
+        struct NullLog;    <- doesn't go anywhere
+        struct SdLog;      <- goes to std::clog
+        struct Timestamped <- logs with timestamps
+    ├── SafeAsyncHandler.hpp
+        Provides class that can be used to ensure that call is only made when lifetime is still valid of callable.
+        However it does not own the handler.
+    ├── SampleTiming.hpp
+    └── test
+        ├── IoService.hpp
+        └── Timer.hpp
+
+18 directories, 79 files
